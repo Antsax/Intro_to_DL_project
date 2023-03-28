@@ -43,10 +43,12 @@ class ToTensor(object):
 
         # some images are grayscale so we turn all of them to grayscale for ease
         image = torchvision.transforms.functional.to_grayscale(image)
+        # POISTA ALLA OLEVA RGB MUUTOS
+        image = image.convert('RGB') 
         image = torchvision.transforms.functional.to_tensor(image)
         return {'image_name': image_name,
                 'image': image,
-                'target_labels': torch.tensor(target_labels.values.astype(np.int32))}
+                'target_labels': torch.tensor(target_labels.values.astype(np.float32))}
 
 
 def image_has_label(image_name, label):
@@ -79,6 +81,6 @@ def load_data(batch_size):
     image_dataset_train = split_dataset[0]
     image_dataset_validation = split_dataset[1]
     image_loader_train = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True)
-    image_loader_validation = DataLoader(image_dataset_validation, batch_size=batch_size)
+    image_loader_validation = DataLoader(image_dataset_validation, batch_size=batch_size, shuffle=True)
     return image_loader_train, image_loader_validation
 
