@@ -2,11 +2,10 @@ import os
 import re
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision
 from PIL import Image
 import numpy as np
-
 
 # https://pytorch.org/tutorials/beginner/data_loading_tutorial.html used as help
 
@@ -76,6 +75,10 @@ def load_data(batch_size):
 
     transform = torchvision.transforms.Compose([ToTensor()])
     image_dataset = MultiLabelDataset(csv_file="../data/images_encoded.csv", transform=transform)
-    image_loader = DataLoader(image_dataset, batch_size=batch_size, shuffle=True)
-    return image_loader
+    split_dataset = random_split(image_dataset, [0.8, 0.2])
+    image_dataset_train = split_dataset[0]
+    image_dataset_validation = split_dataset[1]
+    image_loader_train = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True)
+    image_loader_validation = DataLoader(image_dataset_validation, batch_size=batch_size)
+    return image_loader_train, image_loader_validation
 

@@ -5,9 +5,10 @@ import data_loader
 #hyperparameters
 BATCH_SIZE = 5
 
-image_dataloader = data_loader.load_data(BATCH_SIZE)
+image_loader_train, image_loader_validation = data_loader.load_data(BATCH_SIZE)
 
-dataiter = iter(image_dataloader)
+dataiter = iter(image_loader_train)
+print(len(image_loader_train))
 mini_batch = next(dataiter)
 
 print(mini_batch["image"].shape)
