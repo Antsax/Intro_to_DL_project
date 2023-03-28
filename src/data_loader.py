@@ -8,6 +8,8 @@ from PIL import Image
 import numpy as np
 
 
+# https://pytorch.org/tutorials/beginner/data_loading_tutorial.html used as help
+
 header = ["Filename", "baby", "bird", "car", "clouds", "dog", "female", "flower", "male", "night", "people", "portrait", "river", "sea", "tree"]
 
 
@@ -40,9 +42,8 @@ class ToTensor(object):
     def __call__(self, sample):
         image_name, image, target_labels = sample["image_name"], sample['image'], sample['target_labels']
 
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C x H x W
+        # some images are grayscale so we turn all of them to grayscale for ease
+        image = torchvision.transforms.functional.to_grayscale(image)
         image = torchvision.transforms.functional.to_tensor(image)
         return {'image_name': image_name,
                 'image': image,
@@ -74,7 +75,7 @@ def load_data(batch_size):
         df.to_csv("../data/images_encoded.csv", index=False)
 
     transform = torchvision.transforms.Compose([ToTensor()])
-    image_dataset = MultiLabelDataset(csv_file="images_encoded.csv", transform=transform)
+    image_dataset = MultiLabelDataset(csv_file="../data/images_encoded.csv", transform=transform)
     image_loader = DataLoader(image_dataset, batch_size=batch_size, shuffle=True)
     return image_loader
 
