@@ -26,7 +26,7 @@ class MultiLabelDataset(Dataset):
             idx = idx.tolist()
         
         img_name = os.path.join(self.root_dir, self.df.iloc[idx,0])
-        image = Image.open(img_name)
+        image = Image.open(img_name).convert("RGB")
         target_labels = self.df.iloc[idx, 1:]
         
         sample = {"image_name": img_name, "image": image, "target_labels": target_labels}
@@ -37,15 +37,14 @@ class MultiLabelDataset(Dataset):
         return sample
 
 
-class ToTensor(object):
+class Preprocess(object):
     def __call__(self, sample):
         image_name, image, target_labels = sample["image_name"], sample['image'], sample['target_labels']
 
-        # some images are grayscale so we turn all of them to grayscale for ease
-        image = torchvision.transforms.functional.to_grayscale(image)
-        # POISTA ALLA OLEVA RGB MUUTOS
-        image = image.convert('RGB') 
+        image = torchvision.transforms.functional.resize(image, 256)
+        image = torchvision.transforms.functional.center_crop(image, 224)
         image = torchvision.transforms.functional.to_tensor(image)
+        image = torchvision.transforms.functional.normalize(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         return {'image_name': image_name,
                 'image': image,
                 'target_labels': torch.tensor(target_labels.values.astype(np.float32))}
@@ -75,7 +74,7 @@ def load_data(batch_size):
         df.head()
         df.to_csv("../data/images_encoded.csv", index=False)
 
-    transform = torchvision.transforms.Compose([ToTensor()])
+    transform = torchvision.transforms.Compose([Preprocess()])
     image_dataset = MultiLabelDataset(csv_file="../data/images_encoded.csv", transform=transform)
     split_dataset = random_split(image_dataset, [0.8, 0.2])
     image_dataset_train = split_dataset[0]
