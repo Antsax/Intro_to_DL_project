@@ -3,6 +3,7 @@ import numpy as np
 import data_loader
 from torchvision import models
 import torch.nn as nn
+from sklearn.metrics import precision_recall_fscore_support
 
 #hyperparameters
 BATCH_SIZE = 5
@@ -109,6 +110,7 @@ for epoch in range(N_EPOCHS):
                100. * train_correct / total, train_correct, total, 100. * total_correct_labels / (total*14), total_correct_labels, (total*14)))
         
     #validation after each epoch
+    print("validating")
     validation_loss = 0
     with torch.no_grad():
         for batch_number, data in enumerate(image_loader_validation):
@@ -118,6 +120,12 @@ for epoch in range(N_EPOCHS):
             
             loss = loss_function(outputs, target_labels)
             validation_loss += loss.item()
+            
+        predictions = output_to_prediction(outputs).cpu()
+        true_labels = data["target_labels"].cpu()
+        
+        prec, recall, f1, support = precision_recall_fscore_support(true_labels, predictions, average='macro')
+        prec, recall, f1, support = precision_recall_fscore_support(true_labels, predictions, average='micro')
             
     if early_stopper.early_stop(validation_loss):
         break
