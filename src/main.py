@@ -8,9 +8,9 @@ import csv
 import os
 
 #hyperparameters
-BATCH_SIZE = 25
-N_EPOCHS = 10
-LR = 0.1
+BATCH_SIZE = 30
+N_EPOCHS = 2
+LR = 0.05
 NUM_CLASSES = 14
 
 image_loader_train, image_loader_validation = data_loader.load_data(BATCH_SIZE)
@@ -153,7 +153,7 @@ with torch.no_grad():
     for batch_num, data in enumerate(image_loader_test):
         images, image_names = data['image'].to(device), data['image_name']
         outputs = model(images)
-        predictions = output_to_prediction(outputs).cpu()
+        predictions = output_to_prediction(outputs, threshold=0.35).cpu()
         
         test_predictions.extend(predictions.numpy())
         test_image_names.extend(image_names)
