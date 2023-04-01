@@ -8,8 +8,8 @@ import csv
 import os
 
 #hyperparameters
-BATCH_SIZE = 50
-N_EPOCHS = 2
+BATCH_SIZE = 25
+N_EPOCHS = 10
 LR = 0.1
 NUM_CLASSES = 14
 
@@ -57,7 +57,7 @@ else:
 model = MultilabelClassifier()
 model.to(device)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+optimizer = torch.optim.Adagrad(model.parameters(), lr=LR)
 loss_function = nn.BCELoss()
 
 #HELPER FUNCTIONS
@@ -78,7 +78,7 @@ def correct_labels_in_prediction(prediction, target_labels):
     return (prediction == target_labels).sum().item()
 
 # Training
-early_stopper = EarlyStopper(patience=3)
+early_stopper = EarlyStopper(2)
 for epoch in range(N_EPOCHS):
     train_loss = 0
     train_correct = 0
@@ -123,9 +123,8 @@ for epoch in range(N_EPOCHS):
             validation_loss += loss.item()
             
         predictions = output_to_prediction(outputs).cpu()
-        true_labels = data["target_labels"].cpu()
+        true_labels = target_labels.cpu()
 
-        
         all_predictions.extend(predictions.numpy())
         all_true_labels.extend(true_labels.numpy())
 
@@ -173,3 +172,5 @@ with open('../data/test_predictions.tsv', 'w', newline='') as csvfile:
         sorted_prediction = [row_dict[label] for label in data_loader.header[1:]]
         row.extend(sorted_prediction)
         writer.writerow(row)
+
+torch.save(model.state_dict(), 'multilabel_classifier.pth')
