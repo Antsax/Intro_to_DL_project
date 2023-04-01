@@ -35,19 +35,49 @@ class MultiLabelDataset(Dataset):
             sample = self.transform(sample)
         
         return sample
+    
+class TestDataset(Dataset):
+    def __init__(self, root_dir="../data/test/images/", transform=None):
+        self.image_names = os.listdir(root_dir)
+        self.root_dir = root_dir
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.image_names)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        img_name = os.path.join(self.root_dir, self.image_names[idx])
+        image = Image.open(img_name).convert("RGB")
+        
+        sample = {"image_name": self.image_names[idx], "image": image}
+        
+        if self.transform:
+            sample = self.transform(sample)
+        
+        return sample
 
 
 class Preprocess(object):
     def __call__(self, sample):
-        image_name, image, target_labels = sample["image_name"], sample['image'], sample['target_labels']
+        image_name, image = sample["image_name"], sample['image']
+        target_labels = sample.get('target_labels', None)
 
         image = torchvision.transforms.functional.resize(image, 256)
         image = torchvision.transforms.functional.center_crop(image, 224)
         image = torchvision.transforms.functional.to_tensor(image)
         image = torchvision.transforms.functional.normalize(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        return {'image_name': image_name,
+
+        if target_labels is not None:
+            return {
+                'image_name': image_name,
                 'image': image,
-                'target_labels': torch.tensor(target_labels.values.astype(np.float32))}
+                'target_labels': torch.tensor(target_labels.values.astype(np.float32))
+            }
+        else:
+            return {'image_name': image_name, 'image': image}
 
 
 def image_has_label(image_name, label):
@@ -76,10 +106,16 @@ def load_data(batch_size):
 
     transform = torchvision.transforms.Compose([Preprocess()])
     image_dataset = MultiLabelDataset(csv_file="../data/images_encoded.csv", transform=transform)
-    split_dataset = random_split(image_dataset, [0.8, 0.2])
+    split_dataset = random_split(image_dataset, [0.85, 0.15])
     image_dataset_train = split_dataset[0]
     image_dataset_validation = split_dataset[1]
     image_loader_train = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True)
     image_loader_validation = DataLoader(image_dataset_validation, batch_size=batch_size, shuffle=True)
     return image_loader_train, image_loader_validation
 
+def load_test_data(batch_size):
+    transform = torchvision.transforms.Compose([Preprocess()])
+    image_dataset_test = TestDataset(transform=transform)
+    image_dataset_test.image_names.sort()
+    image_loader_test = DataLoader(image_dataset_test, batch_size=batch_size, shuffle=False)
+    return image_loader_test

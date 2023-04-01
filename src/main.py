@@ -4,14 +4,17 @@ import data_loader
 from torchvision import models
 import torch.nn as nn
 from sklearn.metrics import precision_recall_fscore_support
+import csv
+import os
 
 #hyperparameters
-BATCH_SIZE = 5
+BATCH_SIZE = 50
 N_EPOCHS = 2
-LR = 0.05
+LR = 0.1
 NUM_CLASSES = 14
 
 image_loader_train, image_loader_validation = data_loader.load_data(BATCH_SIZE)
+image_loader_test = data_loader.load_test_data(BATCH_SIZE)
 
 class MultilabelClassifier(nn.Module):
     def __init__(self):
@@ -54,15 +57,10 @@ else:
 model = MultilabelClassifier()
 model.to(device)
 
-# tai Adam
-optimizer = torch.optim.Adagrad(model.parameters(), lr=LR)
-# tai CrossEntropyLoss
-# katso https://learnopencv.com/multi-label-image-classification-with-pytorch-image-tagging/
-# https://towardsdatascience.com/multilabel-classification-with-pytorch-in-5-minutes-a4fa8993cbc7
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 loss_function = nn.BCELoss()
 
 #HELPER FUNCTIONS
-
 #turn the sigmoid probabilities to a torch tensor of zeros and ones. One if greater than the specified threshold
 def output_to_prediction(outputs, threshold=0.5):
     predictions = []
@@ -81,12 +79,12 @@ def correct_labels_in_prediction(prediction, target_labels):
 
 # Training
 early_stopper = EarlyStopper(patience=3)
-model.train()
 for epoch in range(N_EPOCHS):
     train_loss = 0
     train_correct = 0
     total = 0
     total_correct_labels = 0
+    model.train()
     for batch_number, data in enumerate(image_loader_train):
         images, target_labels = data['image'].to(device), data['target_labels'].to(device)
 
@@ -112,7 +110,10 @@ for epoch in range(N_EPOCHS):
     #validation after each epoch
     print("validating")
     validation_loss = 0
+    model.eval()
     with torch.no_grad():
+        all_predictions = []
+        all_true_labels = []
         for batch_number, data in enumerate(image_loader_validation):
             images, target_labels = data['image'].to(device), data['target_labels'].to(device)
             
@@ -123,9 +124,52 @@ for epoch in range(N_EPOCHS):
             
         predictions = output_to_prediction(outputs).cpu()
         true_labels = data["target_labels"].cpu()
+
         
-        prec, recall, f1, support = precision_recall_fscore_support(true_labels, predictions, average='macro')
-        prec, recall, f1, support = precision_recall_fscore_support(true_labels, predictions, average='micro')
+        all_predictions.extend(predictions.numpy())
+        all_true_labels.extend(true_labels.numpy())
+
+        macro_prec, macro_recall, macro_f1, _ = precision_recall_fscore_support(
+        all_true_labels, all_predictions, average='macro', zero_division=1)
+
+        micro_prec, micro_recall, micro_f1, _ = precision_recall_fscore_support(
+        all_true_labels, all_predictions, average='micro', zero_division=1)
+
+        avg_validation_loss = validation_loss / (batch_number + 1)
+
+        print(
+            f"Validation Loss: {avg_validation_loss:.4f} | "
+            f"Macro F1: {macro_f1:.4f} | Macro Precision: {macro_prec:.4f} | Macro Recall: {macro_recall:.4f} | "
+            f"Micro F1: {micro_f1:.4f} | Micro Precision: {micro_prec:.4f} | Micro Recall: {micro_recall:.4f}"
+)
             
     if early_stopper.early_stop(validation_loss):
         break
+
+# testing
+test_predictions = []
+test_image_names = []
+
+with torch.no_grad():
+    for batch_num, data in enumerate(image_loader_test):
+        images, image_names = data['image'].to(device), data['image_name']
+        outputs = model(images)
+        predictions = output_to_prediction(outputs).cpu()
+        
+        test_predictions.extend(predictions.numpy())
+        test_image_names.extend(image_names)
+
+sorted_indices = sorted(range(len(test_image_names)), key=lambda i: test_image_names[i])
+test_image_names = [test_image_names[i] for i in sorted_indices]
+test_predictions = [test_predictions[i] for i in sorted_indices]
+
+with open('../data/test_predictions.tsv', 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile, delimiter='\t')
+    writer.writerow(data_loader.header)
+
+    for image_name, prediction in zip(test_image_names, test_predictions):
+        row = [os.path.basename(image_name)]
+        row_dict = dict(zip(data_loader.header[1:], prediction.astype(int)))
+        sorted_prediction = [row_dict[label] for label in data_loader.header[1:]]
+        row.extend(sorted_prediction)
+        writer.writerow(row)
